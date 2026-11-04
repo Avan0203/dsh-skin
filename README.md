@@ -59,7 +59,7 @@ pnpm add github:Avan0203/dsh-skin
 
 ### 方式二：用 Release 里的压缩包
 
-从 [Releases](https://github.com/Avan0203/dsh-skin/releases) 下载 `dsh-skin-1.0.1.tgz`，同样放进 profile：
+从 [Releases](https://github.com/Avan0203/dsh-skin/releases) 下载最新的 `dsh-skin-<版本>.tgz`（若该版本没附带压缩包，用方式一，或 GitHub 自动生成的 Source code 压缩包），同样放进 profile：
 
 ```bash
 cd "$HOME/.dsh/profiles/desktop"
@@ -167,7 +167,7 @@ HTTP 路由（均挂在 `/plugin-skin` 前缀下）：
 
 ```bash
 npm run check   # 语法自检
-npm run pack    # 打包成 dist/dsh-skin-1.0.1.tgz
+npm run pack    # 打包成 dist/dsh-skin-<version>.tgz
 ```
 
 本地调试时用 `link:` 安装（见「方式三」），改完 `client.js` 刷新页面，改完 `index.js` 重启 DSH。
