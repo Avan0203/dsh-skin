@@ -59,11 +59,11 @@ pnpm add github:Avan0203/dsh-skin
 
 ### 方式二：用 Release 里的压缩包
 
-从 [Releases](https://github.com/Avan0203/dsh-skin/releases) 下载 `dsh-skin-1.0.0.tgz`，同样放进 profile：
+从 [Releases](https://github.com/Avan0203/dsh-skin/releases) 下载 `dsh-skin-1.0.1.tgz`，同样放进 profile：
 
 ```bash
 cd "$HOME/.dsh/profiles/desktop"
-pnpm add ./dsh-skin-1.0.0.tgz
+pnpm add ./dsh-skin-1.0.1.tgz
 ```
 
 并同样把 `"dsh-skin"` 加进 `dsh.profile.bundles`，重启 DSH。
@@ -167,10 +167,25 @@ HTTP 路由（均挂在 `/plugin-skin` 前缀下）：
 
 ```bash
 npm run check   # 语法自检
-npm run pack    # 打包成 dist/dsh-skin-1.0.0.tgz
+npm run pack    # 打包成 dist/dsh-skin-1.0.1.tgz
 ```
 
 本地调试时用 `link:` 安装（见「方式三」），改完 `client.js` 刷新页面，改完 `index.js` 重启 DSH。
+
+## ❓ 常见问题
+
+**点了「上一张 / 下一张」没反应？**
+先看面板底部「当前 x/y」。三种来源是**互斥**的，只使用当前选中的那一个：
+
+- 如果你导入过本地图片，要点一下「本地图片」标签，列表才会变成那些图；
+- 图床只有一个地址、并且开着「缓存图床图片到本地」时，来回切都是同一张缓存图——要每次取新图就关掉缓存，或者多加几个地址；
+- 只有 1 张可用壁纸时，面板会直接给出提示，而不是默默无反应。
+
+**壁纸不显示？**
+确认「启用背景」是开的、来源不是空的；如果图片被移动或删除，面板底部会列出失败的来源。
+
+**改代码后没生效？**
+改 `client.js` 刷新页面即可；改 `index.js`（Host 半边）必须重启 DSH。
 
 ## 📄 License
 

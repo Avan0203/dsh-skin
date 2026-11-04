@@ -93,6 +93,7 @@ window.__ModuleLoader__.load({
       statusPaused: '已暂停',
       currentItem: '当前',
       loadFailed: '这张没能加载，已保留上一张：',
+      onlyOneHint: '当前只有 1 张可用壁纸，没有可切换的对象。切到「本地图片」标签就能轮播已导入的图片，或关闭「缓存图床图片到本地」让这个地址每次重新取图。',
       knownErrors: '部分来源被跳过：',
       noConfig: '读取背景设置失败。',
       seconds: ' 秒',
@@ -178,6 +179,7 @@ window.__ModuleLoader__.load({
       statusPaused: 'Paused',
       currentItem: 'Current',
       loadFailed: 'That one failed to load; the previous wallpaper is kept:',
+      onlyOneHint: 'Only one wallpaper is available, so there is nothing to switch to. Open the “Local images” tab to rotate the imported pictures, or turn off “Cache image-URL pictures locally” so the URL is re-fetched on every switch.',
       knownErrors: 'Some sources were skipped:',
       noConfig: 'Could not read the background settings.',
       seconds: ' s',
@@ -1201,6 +1203,15 @@ window.__ModuleLoader__.load({
           if (state.saving) statusBits.push(t('statusSaving'))
           if (state.paused) statusBits.push(t('statusPaused'))
 
+          /*
+           * A single source has nothing to switch between: `advance` would
+           * re-render the same picture (and a cached image URL returns the very
+           * same file), so the buttons would look dead. Say so instead of
+           * staying silent — except for an uncached image URL, which really does
+           * hand out a fresh picture on every request.
+           */
+          const onlyOne = state.items.length === 1 && !(config.source === 'urls' && config.cacheUrls === false)
+
           const hiddenEntries = () => (Array.isArray(config.hidden) ? config.hidden : [])
 
           const addLocal = () => {
@@ -1560,8 +1571,18 @@ window.__ModuleLoader__.load({
                 }, t(config.cacheUrls === false ? 'urlsRandomNote' : 'urlsCachedNote')),
 
             h('div', { key: 'controls', style: { display: 'flex', gap: '8px', padding: '16px 0 0', flexWrap: 'wrap' } },
-              h(Button, { onClick: () => advance(-1, false) }, t('prev')),
-              h(Button, { onClick: () => advance(1, false) }, t('next')),
+              h(Button, {
+                onClick: () => {
+                  if (onlyOne) setState({ notice: t('onlyOneHint') })
+                  advance(-1, false)
+                },
+              }, t('prev')),
+              h(Button, {
+                onClick: () => {
+                  if (onlyOne) setState({ notice: t('onlyOneHint') })
+                  advance(1, false)
+                },
+              }, t('next')),
               h(Button, {
                 onClick: () => {
                   state.paused = !state.paused
@@ -1569,6 +1590,13 @@ window.__ModuleLoader__.load({
                   schedule()
                 },
               }, state.paused ? t('resume') : t('pause'))),
+
+            onlyOne
+              ? h('div', {
+                  key: 'only-one-hint',
+                  style: { ...descStyle, padding: '8px 0 0', color: 'var(--dsw-alias-state-warn-primary)' },
+                }, t('onlyOneHint'))
+              : null,
 
             h('div', {
               key: 'shortcut-hint',
