@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Background Wallpaper",
+    "description": "Paints a wallpaper behind the whole Harness UI from image URLs, local files, or a downloaded Wallpaper Engine library, with opacity, blur, slideshow interval, and random order."
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "name": "dsh-skin",
+  "version": "1.0.0",
+  "description": "Wallpaper skin for the DeepSeek Harness UI: image URLs, local files, and Wallpaper Engine libraries, with opacity, blur, slideshow, random order and shortcuts.",
+  "type": "module",
+  "icon": "icon.svg",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg"
+  ],
+  "keywords": [
+    "deepseek",
+    "harness",
+    "dsh",
+    "dsh-plugin",
+    "wallpaper",
+    "background",
+    "skin",
+    "theme"
+  ],
+  "license": "MIT",
+  "author": "Avan0203",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Avan0203/dsh-skin.git"
+  },
+  "homepage": "https://github.com/Avan0203/dsh-skin#readme",
+  "bugs": {
+    "url": "https://github.com/Avan0203/dsh-skin/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "check": "node --check index.js && node --check client.js",
+    "pack": "npm pack --pack-destination dist"
+  },
+  "dsh": {
+    "bundle": { "patch": "./cordis.patch.yml" },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": ["@deepseek-ai/dsh-client-ui-settings"]
+    }
+  }
+}
