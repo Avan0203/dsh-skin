@@ -14,7 +14,7 @@
  */
 import { createHash } from 'node:crypto'
 import { createReadStream } from 'node:fs'
-import { mkdir, readFile, readdir, rename, stat, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, readdir, rename, rm, stat, unlink, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { dirname, extname, join, resolve, sep, basename } from 'node:path'
 
@@ -68,6 +68,7 @@ const DEFAULTS = {
 const MAX_ITEMS = 4000
 const MAX_WALK_DEPTH = 4
 const MAX_REMOTE_BYTES = 64 * 1024 * 1024
+const MAX_CACHE_ITEMS = 5000
 const REMOTE_CACHE_DIR = 'url-cache'
 const REMOTE_HEADERS = {
   'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
@@ -172,26 +173,71 @@ function remoteCacheKey(value) {
   return createHash('sha1').update(value).digest('hex').slice(0, 24)
 }
 
-async function findCachedMedia(directory, hash) {
-  const target = join(directory, REMOTE_CACHE_DIR, hash)
-  try {
-    const entries = await readdir(target, { withFileTypes: true })
-    for (const entry of entries) {
-      if (!entry.isFile() || mediaKind(entry.name) === undefined) continue
-      return join(target, entry.name)
-    }
-  } catch {
-    /* not cached yet */
-  }
-  return ''
+function remoteCacheFolder(directory, key) {
+  return join(directory, REMOTE_CACHE_DIR, key)
 }
 
-async function downloadRemoteMedia(value, directory, hash) {
+async function readRemoteMeta(folder) {
+  try {
+    const value = JSON.parse(await readFile(join(folder, 'meta.json'), 'utf8'))
+    return value !== null && typeof value === 'object' ? value : {}
+  } catch {
+    return {}
+  }
+}
+
+async function writeRemoteMeta(folder, meta) {
+  const temporary = join(folder, `meta.${process.pid}.tmp`)
+  await writeFile(temporary, `${JSON.stringify(meta, null, 2)}\n`, 'utf8')
+  await rename(temporary, join(folder, 'meta.json'))
+}
+
+async function listRemoteFiles(folder) {
+  let entries
+  try {
+    entries = await readdir(folder, { withFileTypes: true })
+  } catch {
+    return []
+  }
+  const files = []
+  for (const entry of entries) {
+    if (!entry.isFile()) continue
+    if (entry.name === 'meta.json' || entry.name.endsWith('.tmp')) continue
+    if (mediaKind(entry.name) === undefined) continue
+    const absolute = join(folder, entry.name)
+    let info
+    try {
+      info = await stat(absolute)
+    } catch {
+      continue
+    }
+    files.push({ name: entry.name, path: absolute, savedAt: info.mtimeMs })
+  }
+  files.sort((a, b) => a.savedAt - b.savedAt)
+  return files
+}
+
+async function latestRemoteFile(folder) {
+  const files = await listRemoteFiles(folder)
+  return files.length === 0 ? null : files[files.length - 1]
+}
+
+async function downloadRemoteMedia(value, directory, key, fresh) {
+  const folder = remoteCacheFolder(directory, key)
+  const latest = await latestRemoteFile(folder)
+  const meta = await readRemoteMeta(folder)
+  const headers = { ...REMOTE_HEADERS }
+  if (fresh === true && latest !== null) {
+    if (typeof meta.etag === 'string' && meta.etag !== '') headers['if-none-match'] = meta.etag
+    if (typeof meta.lastModified === 'string' && meta.lastModified !== '') headers['if-modified-since'] = meta.lastModified
+  }
   const response = await fetch(value, {
     redirect: 'follow',
-    headers: REMOTE_HEADERS,
+    headers,
     signal: AbortSignal.timeout(20000),
   })
+  // A static URL only revalidates: keep the single cached copy.
+  if (response.status === 304 && latest !== null) return { file: latest.path, added: false }
   if (!response.ok) throw new Error(`HTTP ${response.status}`)
   const type = (response.headers.get('content-type') || '').split(';')[0].trim().toLowerCase()
   if (!type.startsWith('image/') && !type.startsWith('video/')) throw new Error('不是图片或视频')
@@ -200,31 +246,88 @@ async function downloadRemoteMedia(value, directory, hash) {
   const buffer = Buffer.from(await response.arrayBuffer())
   if (buffer.length === 0) throw new Error('响应为空')
   if (buffer.length > MAX_REMOTE_BYTES) throw new Error('图片超过大小上限')
-  const target = join(directory, REMOTE_CACHE_DIR, hash)
-  await mkdir(target, { recursive: true })
-  const file = join(target, `media${ext}`)
-  const temporary = join(target, `media.${process.pid}.tmp`)
+  const digest = createHash('sha1').update(buffer).digest('hex')
+  const etag = response.headers.get('etag') || ''
+  const lastModified = response.headers.get('last-modified') || ''
+  await mkdir(folder, { recursive: true })
+  // Servers without validators can still hand back the same bytes; avoid a
+  // second copy for that case.
+  if (latest !== null && meta.sha1 === digest) {
+    await writeRemoteMeta(folder, { url: value, sha1: digest, etag, lastModified, latest: latest.name, updatedAt: Date.now() })
+    return { file: latest.path, added: false }
+  }
+  const name = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}${ext}`
+  const file = join(folder, name)
+  const temporary = join(folder, `.${name}.${process.pid}.tmp`)
   await writeFile(temporary, buffer)
   await rename(temporary, file)
-  return file
+  await writeRemoteMeta(folder, { url: value, sha1: digest, etag, lastModified, latest: name, updatedAt: Date.now() })
+  return { file, added: true }
 }
 
 const remoteDownloads = new Map()
 
-async function cacheRemoteMedia(value, directory) {
-  const hash = remoteCacheKey(value)
-  const hit = await findCachedMedia(directory, hash)
-  if (hit !== '') return hit
-  const key = `${directory}\n${hash}`
-  const pending = remoteDownloads.get(key)
+async function cacheRemoteMedia(value, directory, options) {
+  const key = remoteCacheKey(value)
+  const folder = remoteCacheFolder(directory, key)
+  const fresh = options !== undefined && options.fresh === true
+  if (!fresh) {
+    const hit = await latestRemoteFile(folder)
+    if (hit !== null) return hit.path
+  }
+  const slot = `${folder}\n${fresh ? 'fresh' : 'cold'}`
+  const pending = remoteDownloads.get(slot)
   if (pending !== undefined) return pending
-  const task = downloadRemoteMedia(value, directory, hash)
-  remoteDownloads.set(key, task)
+  const task = downloadRemoteMedia(value, directory, key, fresh).then((result) => result.file)
+  remoteDownloads.set(slot, task)
   try {
     return await task
   } finally {
-    remoteDownloads.delete(key)
+    remoteDownloads.delete(slot)
   }
+}
+
+async function scanRemoteCache(directory, urls) {
+  const root = join(directory, REMOTE_CACHE_DIR)
+  let folders
+  try {
+    folders = await readdir(root, { withFileTypes: true })
+  } catch {
+    return []
+  }
+  const known = new Map()
+  for (const url of urls) known.set(remoteCacheKey(url), url)
+  const items = []
+  for (const folder of folders) {
+    if (!folder.isDirectory() || !/^[0-9a-f]{24}$/.test(folder.name)) continue
+    const dir = join(root, folder.name)
+    const meta = await readRemoteMeta(dir)
+    const files = await listRemoteFiles(dir)
+    for (const file of files) {
+      const id = `${folder.name}/${file.name}`
+      items.push({
+        src: `${ROUTE}/cache?id=${encodeURIComponent(id)}`,
+        kind: mediaKind(file.name),
+        label: typeof meta.url === 'string' && meta.url !== '' ? meta.url : (known.get(folder.name) || folder.name),
+        cacheId: id,
+        savedAt: Math.round(file.savedAt),
+      })
+    }
+  }
+  // Newest first: a freshly fetched picture is the first tile in the cache list.
+  items.sort((a, b) => b.savedAt - a.savedAt)
+  return items.slice(0, MAX_CACHE_ITEMS)
+}
+
+async function remoteLibrary(config) {
+  if (config.source !== 'urls') return []
+  return scanRemoteCache(effectiveCacheDir(config), config.urls)
+}
+
+function parseCacheId(value) {
+  const match = /^([0-9a-f]{24})\/([A-Za-z0-9._-]+)$/.exec(value || '')
+  if (match === null) return null
+  return { folder: match[1], file: match[2] }
 }
 
 function samePath(a, b) {
@@ -349,6 +452,7 @@ async function buildPlaylist(config) {
         src: config.cacheUrls && cacheable ? remoteUrl(url) : url,
         kind: remoteKind(url),
         label: url,
+        remote: config.cacheUrls && cacheable,
       })
     }
   }
@@ -382,7 +486,7 @@ function pipeFile(filePath, options, response) {
   stream.pipe(response)
 }
 
-async function serveMediaFile(absolute, request, response) {
+async function serveMediaFile(absolute, request, response, cacheControl = 'private, max-age=3600') {
   if (mediaKind(absolute) === undefined) {
     sendJson(response, 415, { error: '不支持的媒体格式' })
     return
@@ -415,7 +519,7 @@ async function serveMediaFile(absolute, request, response) {
         'content-length': end - start + 1,
         'content-range': `bytes ${start}-${end}/${info.size}`,
         'accept-ranges': 'bytes',
-        'cache-control': 'private, max-age=3600',
+        'cache-control': cacheControl,
       })
       pipeFile(absolute, { start, end }, response)
       return
@@ -425,7 +529,7 @@ async function serveMediaFile(absolute, request, response) {
     'content-type': contentType,
     'content-length': info.size,
     'accept-ranges': 'bytes',
-    'cache-control': 'private, max-age=3600',
+    'cache-control': cacheControl,
   })
   if (request.method === 'HEAD') {
     response.end()
@@ -515,7 +619,8 @@ export function apply(ctx) {
 
           if (route === '/state' && request.method === 'GET') {
             const playlist = await refresh(url.searchParams.get('refresh') === '1')
-            sendJson(response, 200, { config, playlist, defaultCacheDir: LIBRARY_DIR })
+            const cache = await remoteLibrary(config)
+            sendJson(response, 200, { config, playlist, cache, defaultCacheDir: LIBRARY_DIR })
             return
           }
 
@@ -535,13 +640,81 @@ export function apply(ctx) {
               return
             }
             let file = ''
+            const fresh = url.searchParams.get('fresh') === '1'
             try {
-              file = await cacheRemoteMedia(source, effectiveCacheDir(config))
+              file = await cacheRemoteMedia(source, effectiveCacheDir(config), { fresh })
             } catch {
               // A failing cache must not hide the wallpaper: let the browser
               // load the original URL directly instead.
               response.writeHead(302, { location: source })
               response.end()
+              return
+            }
+            // A freshly fetched picture must never be replayed from the browser
+            // cache: every switch has to go back to the Host.
+            await serveMediaFile(file, request, response, fresh ? 'no-store' : undefined)
+            return
+          }
+
+          if (route === '/cache') {
+            const id = url.searchParams.get('id')
+            if (id === null || id === '') {
+              if (request.method !== 'GET') {
+                sendJson(response, 405, { error: '不支持的方法' })
+                return
+              }
+              const cache = await remoteLibrary(config)
+              sendJson(response, 200, { cache })
+              return
+            }
+            const parsed = parseCacheId(id)
+            if (parsed === null) {
+              sendJson(response, 400, { error: '缓存编号不合法' })
+              return
+            }
+            const directory = effectiveCacheDir(config)
+            const folder = join(directory, REMOTE_CACHE_DIR, parsed.folder)
+            const file = join(folder, parsed.file)
+            if (!insideRoot(file, folder)) {
+              sendJson(response, 403, { error: '路径不在缓存目录中' })
+              return
+            }
+            if (request.method === 'DELETE') {
+              try {
+                await unlink(file)
+              } catch {
+                /* already gone */
+              }
+              const remaining = await listRemoteFiles(folder)
+              if (remaining.length === 0) {
+                try {
+                  await rm(folder, { recursive: true, force: true })
+                } catch {
+                  /* best effort */
+                }
+              } else {
+                const meta = await readRemoteMeta(folder)
+                if (meta.latest === parsed.file) {
+                  const latest = remaining[remaining.length - 1]
+                  try {
+                    await writeRemoteMeta(folder, {
+                      ...meta,
+                      latest: latest.name,
+                      sha1: '',
+                      etag: '',
+                      lastModified: '',
+                      updatedAt: Date.now(),
+                    })
+                  } catch {
+                    /* the folder may be gone */
+                  }
+                }
+              }
+              sendJson(response, 200, { ok: true })
+              return
+            }
+            if (request.method !== 'GET' && request.method !== 'HEAD') {
+              sendJson(response, 405, { error: '不支持的方法' })
               return
             }
             await serveMediaFile(file, request, response)
@@ -560,7 +733,8 @@ export function apply(ctx) {
             config = sanitize(parsed)
             await persistConfig(config)
             const playlist = await refresh(true)
-            sendJson(response, 200, { config, playlist })
+            const cache = await remoteLibrary(config)
+            sendJson(response, 200, { config, playlist, cache })
             return
           }
 

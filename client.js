@@ -10,6 +10,7 @@ window.__ModuleLoader__.load({
   factory(require) {
     const React = require('react')
     const h = React.createElement
+    const { Button: UiButton, Switch } = require('@deepseek-ai/dsh-client-ui-primitives')
     const NS = 'dsh-skin'
     const API = '/plugin-skin'
 
@@ -23,12 +24,12 @@ window.__ModuleLoader__.load({
       tabLocal: '本地图片',
       tabWe: 'Wallpaper Engine',
       urlsRandomNote: '图床每次请求可能返回不同的图片，因此按顺序轮播；随机播放只对本地图片和壁纸库有效。',
-      urlsCachedNote: '图床图片会缓存在本地，因此仍按顺序轮播；想让每一轮都重新请求图床，关闭上面的「缓存图床图片到本地」。',
+      urlsCachedNote: '图床图片会按地址存档：每次切到这张图床图都会重新取一张，旧图留在「已加载图片」里，重启后仍在。',
       urlsTitle: '图床地址',
       urlsDesc: '每行一个图片直链（https://…），也可以直接粘贴 GIF 或视频直链。',
       urlsPlaceholder: 'https://example.com/wallpaper.jpg',
       cacheUrlsTitle: '缓存图床图片到本地',
-      cacheUrlsDesc: '图床图片第一次加载时下载到缓存目录，之后直接读本地文件；如果这个图床每次返回不同的图片，请关闭。',
+      cacheUrlsDesc: '开启后，每次切到这张图床图都会重新下载并缓存一张，旧图不会被覆盖；关闭后每次都直接请求图床，不写缓存。',
       cacheDirTitle: '缓存目录',
       cacheDirDesc: '「选择文件夹」导入的本地图片和缓存的图床图片都存放在这里，留空使用默认目录。',
       cacheDirPlaceholder: '.dsh/data/dsh-skin/library',
@@ -43,7 +44,8 @@ window.__ModuleLoader__.load({
       pickFolder: '选择文件夹',
       folderHint: '「选择文件夹」会把其中的图片/视频复制到下方设置的缓存目录（默认 .dsh/data/dsh-skin/library），原文件不受影响；也可以填入文件夹路径后点「添加」。',
       galleryTitle: '已加载图片',
-      galleryHint: '点击图片立即切换；鼠标悬停后点右上角的 × 可删除这张图片。',
+      galleryHint: '点击图片立即切换；鼠标悬停后点右上角的 × 可删除这张图片。图床缓存会一直保留，重启后还在。',
+      cachedItem: '图床缓存',
       deleteImage: '删除这张图片',
       clearAll: '清空',
       clearConfirm: '确认清空？',
@@ -93,7 +95,7 @@ window.__ModuleLoader__.load({
       statusPaused: '已暂停',
       currentItem: '当前',
       loadFailed: '这张没能加载，已保留上一张：',
-      onlyOneHint: '当前只有 1 张可用壁纸，没有可切换的对象。切到「本地图片」标签就能轮播已导入的图片，或关闭「缓存图床图片到本地」让这个地址每次重新取图。',
+      onlyOneHint: '当前只有 1 张可用壁纸，没有可切换的对象。换一个来源或再添加一些图片。',
       knownErrors: '部分来源被跳过：',
       noConfig: '读取背景设置失败。',
       seconds: ' 秒',
@@ -109,12 +111,12 @@ window.__ModuleLoader__.load({
       tabLocal: 'Local images',
       tabWe: 'Wallpaper Engine',
       urlsRandomNote: 'URL sources may return a different picture per request, so they play in order; random order applies to local images and the wallpaper library.',
-      urlsCachedNote: 'Image-URL pictures are cached on disk, so they still play in order; turn the cache option above off to request the URL again on every cycle.',
+      urlsCachedNote: 'Image-URL pictures are archived per URL: every switch fetches a new picture and keeps the old ones under “Loaded images”, even after a restart.',
       urlsTitle: 'Image URLs',
       urlsDesc: 'One direct image URL per line (https://…); GIF and video links work too.',
       urlsPlaceholder: 'https://example.com/wallpaper.jpg',
       cacheUrlsTitle: 'Cache image-URL pictures locally',
-      cacheUrlsDesc: 'The first load downloads the picture into the cache folder and later loads read it from disk. Turn this off when the URL returns a different picture each request.',
+      cacheUrlsDesc: 'When on, every switch to this image-URL downloads and caches a new picture without overwriting older ones; turn it off to request the URL directly without writing to disk.',
       cacheDirTitle: 'Cache folder',
       cacheDirDesc: 'Media imported with “Pick folder” and cached image-URL pictures are stored here. Leave empty to use the default folder.',
       cacheDirPlaceholder: '.dsh/data/dsh-skin/library',
@@ -129,7 +131,8 @@ window.__ModuleLoader__.load({
       pickFolder: 'Pick folder',
       folderHint: '“Pick folder” copies its images/videos into the cache folder set below (default .dsh/data/dsh-skin/library); the originals are untouched. You can also type a folder path and press Add.',
       galleryTitle: 'Loaded images',
-      galleryHint: 'Click an image to switch to it right away; hover it and click the × in the corner to remove it.',
+      galleryHint: 'Click an image to switch right away; hover it and click the × to remove it. Cached image-URL pictures persist across restarts.',
+      cachedItem: 'cached picture',
       deleteImage: 'Remove this image',
       clearAll: 'Clear',
       clearConfirm: 'Clear all?',
@@ -179,7 +182,7 @@ window.__ModuleLoader__.load({
       statusPaused: 'Paused',
       currentItem: 'Current',
       loadFailed: 'That one failed to load; the previous wallpaper is kept:',
-      onlyOneHint: 'Only one wallpaper is available, so there is nothing to switch to. Open the “Local images” tab to rotate the imported pictures, or turn off “Cache image-URL pictures locally” so the URL is re-fetched on every switch.',
+      onlyOneHint: 'Only one wallpaper is available, so there is nothing to switch to. Choose another source or add more pictures.',
       knownErrors: 'Some sources were skipped:',
       noConfig: 'Could not read the background settings.',
       seconds: ' s',
@@ -209,6 +212,8 @@ window.__ModuleLoader__.load({
         const state = {
           config: null,
           items: [],
+          cache: [],
+          preview: null,
           errors: [],
           index: 0,
           paused: false,
@@ -232,6 +237,7 @@ window.__ModuleLoader__.load({
         let saveTimer = null
         let slideTimer = null
         let errorTimer = null
+        let cacheTimer = null
         let surfaceDispose = null
         let surfaceBusy = false
         let lastThemeKey = null
@@ -414,18 +420,27 @@ window.__ModuleLoader__.load({
         function bumpSource(src) {
           // A single image host URL can hand out a different picture per
           // request; re-fetching it needs a cache-busting query, otherwise the
-          // interval would only re-read the browser cache.
-          if (!/^https?:/i.test(src)) return src
+          // interval would only re-read the browser cache. The Host's remote
+          // proxy route is cacheable too, so a fresh copy needs the same
+          // treatment as a direct URL.
+          const remoteRoute = src.startsWith(`${API}/remote`)
+          if (!/^https?:/i.test(src) && !remoteRoute) return src
           const separator = src.includes('?') ? '&' : '?'
           return `${src}${separator}_dshbg=${Date.now()}`
         }
 
         function advance(delta, fromError) {
           const total = state.items.length
-          if (total === 0) return
+          if (state.preview !== null) state.preview = null
+          if (total === 0) {
+            render(false, false)
+            emit()
+            return
+          }
+          const urlsMode = state.config !== null && state.config.source === 'urls'
           if (total === 1) {
             const only = current !== null ? current.node : null
-            if (only !== null && only.tagName === 'VIDEO') {
+            if (only !== null && only.tagName === 'VIDEO' && fromError !== true) {
               // A single video that just ended: replay it instead of
               // re-downloading the same file.
               try {
@@ -439,8 +454,11 @@ window.__ModuleLoader__.load({
               emit()
               return
             }
-            // One source still rotates: the interval re-requests it.
-            render(true)
+            // One source still rotates: the interval re-requests it. In URL
+            // mode `fetchFresh` makes the cache archive a new picture instead
+            // of serving the previous one.
+            if (fromError === true) render(false, false)
+            else render(true, urlsMode)
             if (!fromError) schedule()
             emit()
             return
@@ -455,7 +473,7 @@ window.__ModuleLoader__.load({
           }
           if (next === state.index && !fromError) return
           state.index = next
-          render(false)
+          render(urlsMode && !fromError, urlsMode && !fromError)
           if (!fromError) schedule()
           emit()
         }
@@ -475,22 +493,36 @@ window.__ModuleLoader__.load({
           }
         }
 
-        function render(forceReload) {
+        function render(forceReload, fetchFresh) {
           const config = state.config
-          if (config === null || !config.enabled || state.items.length === 0) {
+          if (config === null || !config.enabled) {
+            clearMedia()
+            return
+          }
+          if (state.preview === null && state.items.length === 0) {
             clearMedia()
             return
           }
           if (ensureLayer() === null) return
-          const index = ((state.index % state.items.length) + state.items.length) % state.items.length
-          state.index = index
-          const item = state.items[index]
+          if (state.items.length > 0) {
+            state.index = ((state.index % state.items.length) + state.items.length) % state.items.length
+          } else {
+            state.index = 0
+          }
+          const item = state.preview !== null ? state.preview : state.items[state.index]
+          if (item === undefined) {
+            clearMedia()
+            return
+          }
+          const fresh = fetchFresh === true && item.remote === true && config.cacheUrls !== false
           const same = current !== null && current.src === item.src
-          if (same && forceReload !== true) {
+          if (same && forceReload !== true && !fresh) {
             applyVisuals()
             return
           }
-          const url = forceReload === true ? bumpSource(item.src) : item.src
+          let url = item.src
+          if (fresh) url += `${url.includes('?') ? '&' : '?'}fresh=1`
+          if (forceReload === true) url = bumpSource(url)
           const fade = Number(config.fadeSec) || 0
           const previous = current
 
@@ -516,9 +548,12 @@ window.__ModuleLoader__.load({
                 if (stale.parentNode !== null) stale.parentNode.removeChild(stale)
               }, fade * 1000 + 140)
             }
+            // A fresh image-URL request has just been written to the cache:
+            // refresh the gallery so the new picture shows up there too.
+            if (fresh) refreshCache()
           }
 
-          current = { src: item.src, wrap, node }
+          current = { src: item.src, wrap, node, fresh }
 
           if (item.kind === 'video') {
             const advanceOnEnd = config.advanceOnEnd !== false
@@ -536,6 +571,7 @@ window.__ModuleLoader__.load({
               if (state.config === null || state.config.advanceOnEnd === false) return
               advance(1, false)
             })
+            if (fresh) node.addEventListener('loadeddata', refreshCache, { once: true })
             node.src = url
             const playing = node.play()
             if (playing && typeof playing.catch === 'function') {
@@ -613,7 +649,7 @@ window.__ModuleLoader__.load({
           if (surfaceBusy) return
           lastThemeKey = currentThemeKey()
           const config = state.config
-          if (config === null || !config.enabled || state.items.length === 0 || config.surfaceOpacity >= 100) {
+          if (config === null || !config.enabled || (state.items.length === 0 && state.preview === null) || config.surfaceOpacity >= 100) {
             disposeSurface()
             disposeDialogSurface()
             return
@@ -676,7 +712,10 @@ window.__ModuleLoader__.load({
           if (state.config === null) {
             return
           }
-          if (!state.config.enabled || state.items.length === 0) {
+          if (state.preview !== null && !state.cache.some((entry) => entry.src === state.preview.src)) {
+            state.preview = null
+          }
+          if (!state.config.enabled || (state.items.length === 0 && state.preview === null)) {
             destroyLayer()
           } else {
             if (state.index >= state.items.length) state.index = 0
@@ -699,6 +738,7 @@ window.__ModuleLoader__.load({
             setState({
               config: data.config,
               items: Array.isArray(data.playlist && data.playlist.items) ? data.playlist.items : [],
+              cache: Array.isArray(data.cache) ? data.cache : [],
               errors: Array.isArray(data.playlist && data.playlist.errors) ? data.playlist.errors : [],
               loading: false,
               notice: '',
@@ -710,6 +750,22 @@ window.__ModuleLoader__.load({
           } catch (error) {
             setState({ loading: false, notice: errorText(error) })
           }
+        }
+
+        function refreshCache() {
+          if (cacheTimer !== null) clearTimeout(cacheTimer)
+          cacheTimer = setTimeout(async () => {
+            cacheTimer = null
+            if (state.config === null) return
+            try {
+              const response = await fetch(`${API}/cache`, { cache: 'no-store' })
+              if (!response.ok) return
+              const data = await response.json()
+              if (Array.isArray(data.cache)) setState({ cache: data.cache })
+            } catch {
+              /* the wallpaper still works without the refreshed list */
+            }
+          }, 700)
         }
 
         function saveSoon() {
@@ -731,6 +787,7 @@ window.__ModuleLoader__.load({
               if (state.config !== sent) return
               setState({
                 items: Array.isArray(data.playlist && data.playlist.items) ? data.playlist.items : [],
+                cache: Array.isArray(data.cache) ? data.cache : state.cache,
                 errors: Array.isArray(data.playlist && data.playlist.errors) ? data.playlist.errors : [],
                 saving: false,
                 notice: '',
@@ -745,7 +802,10 @@ window.__ModuleLoader__.load({
 
         function patchConfig(patch) {
           if (state.config === null) return
-          if (patch.source !== undefined && patch.source !== state.config.source) state.index = 0
+          if (patch.source !== undefined && patch.source !== state.config.source) {
+            state.index = 0
+            state.preview = null
+          }
           setState({ config: Object.assign({}, state.config, patch) })
           sync()
           saveSoon()
@@ -753,7 +813,19 @@ window.__ModuleLoader__.load({
 
         function select(index) {
           if (state.items.length === 0) return
+          state.preview = null
           state.index = ((index % state.items.length) + state.items.length) % state.items.length
+          const urlsMode = state.config !== null && state.config.source === 'urls'
+          // Switching to an image-URL item asks the Host for a fresh picture
+          // (cached) instead of reusing the one already on screen.
+          render(urlsMode, urlsMode)
+          emit()
+          schedule()
+        }
+
+        function previewCache(item) {
+          if (item === undefined || item === null) return
+          state.preview = item
           render()
           emit()
           schedule()
@@ -767,6 +839,7 @@ window.__ModuleLoader__.load({
           if (saveTimer !== null) clearTimeout(saveTimer)
           if (slideTimer !== null) clearTimeout(slideTimer)
           if (errorTimer !== null) clearTimeout(errorTimer)
+          if (cacheTimer !== null) clearTimeout(cacheTimer)
           destroyLayer()
           disposeSurface()
           disposeDialogSurface()
@@ -839,69 +912,17 @@ window.__ModuleLoader__.load({
           boxSizing: 'border-box',
         }
 
-        function Button(props) {
-          const disabled = props.disabled === true
-          const primary = props.primary === true
-          return h('button', {
-            type: 'button',
-            disabled,
-            onClick: props.onClick,
-            title: props.title,
-            style: {
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '6px',
-              height: '28px',
-              padding: '0 12px',
-              borderRadius: '8px',
-              cursor: disabled ? 'default' : 'pointer',
-              background: primary ? 'var(--dsw-alias-brand-primary)' : 'var(--dsw-alias-bg-layer-2)',
-              color: primary ? '#ffffff' : 'var(--dsw-alias-label-primary)',
-              border: primary ? 'none' : '1px solid var(--dsw-alias-border-l1)',
-              fontSize: '12px',
-              fontFamily: 'inherit',
-              opacity: disabled ? 0.5 : 1,
-              flex: '0 0 auto',
-            },
-          }, props.children)
-        }
-
-        function Switch(props) {
-          return h('button', {
-            type: 'button',
-            role: 'switch',
-            'aria-checked': props.checked ? 'true' : 'false',
-            'aria-label': props.label,
-            onClick: () => props.onChange(!props.checked),
-            style: {
-              position: 'relative',
-              width: '36px',
-              height: '20px',
-              padding: 0,
-              border: 'none',
-              borderRadius: '999px',
-              cursor: 'pointer',
-              background: props.checked
-                ? 'var(--dsw-alias-brand-primary)'
-                : 'var(--dsw-alias-bg-layer-2)',
-              boxShadow: props.checked ? 'none' : 'inset 0 0 0 1px var(--dsw-alias-border-l2)',
-              transition: 'background .15s ease',
-              flex: '0 0 auto',
-            },
-          }, h('span', {
-            style: {
-              position: 'absolute',
-              top: '2px',
-              left: props.checked ? '18px' : '2px',
-              width: '16px',
-              height: '16px',
-              borderRadius: '50%',
-              background: props.checked ? '#ffffff' : 'var(--dsw-alias-label-secondary)',
-              transition: 'left .15s ease',
-            },
-          }))
-        }
+        // Both controls come from the Host's own ui primitives, so the switch
+        // capsule, its corner shape, and the light and dark colour tokens cannot
+        // drift from the rest of the settings UI. The wrapper only pins the
+        // compact size and the refuse-to-shrink width this panel has always used;
+        // a call site that wants the filled action passes `variant: 'primary'`.
+        const Button = (props) => h(UiButton, {
+          size: 'sm',
+          variant: 'outline',
+          ...props,
+          style: { flex: '0 0 auto', ...props.style },
+        })
 
         function SwitchRow(props) {
           return h('div', { style: rowStyle },
@@ -957,19 +978,177 @@ window.__ModuleLoader__.load({
           const [hovered, setHovered] = React.useState('')
           const [confirmClear, setConfirmClear] = React.useState(false)
           const items = props.items
-          const isEmpty = items.length === 0
+          const cached = Array.isArray(props.cached) ? props.cached : []
+          const total = items.length + cached.length
+          const isEmpty = total === 0
 
           const fileName = (label) => {
             const parts = String(label || '').split(/[\\/]/)
             return parts[parts.length - 1] || String(label || '')
           }
+          const titleOf = (item) => {
+            const label = item.label || item.src
+            if (item.cached && props.cacheCaption) {
+              const date = props.cacheCaption(item)
+              if (date !== '') return `${date} · ${label}`
+            }
+            return label
+          }
+          const captionOf = (item) => {
+            if (item.cached) {
+              return props.cacheCaption ? props.cacheCaption(item) : fileName(item.label)
+            }
+            return fileName(item.label) || item.src
+          }
+
+          const boxStyle = {
+            marginTop: '8px',
+            height: `${GALLERY_HEIGHT}px`,
+            boxSizing: 'border-box',
+            padding: '10px',
+            border: '1px solid var(--dsw-alias-border-l1)',
+            borderRadius: '10px',
+            background: 'var(--dsw-alias-bg-layer-1)',
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            overscrollBehavior: 'contain',
+          }
+          const gridStyle = {
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(108px, 1fr))',
+            gap: '8px',
+          }
+
+          const tile = (item, active, onSelect, onRemove) => {
+            const key = item.src
+            const visible = hovered === key
+            return h('div', {
+              key,
+              role: 'button',
+              tabIndex: 0,
+              title: titleOf(item),
+              'aria-label': titleOf(item),
+              'aria-current': active ? 'true' : undefined,
+              onClick: onSelect,
+              onKeyDown: (event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault()
+                  onSelect()
+                }
+              },
+              onMouseEnter: () => setHovered(key),
+              onMouseLeave: () => setHovered((current) => (current === key ? '' : current)),
+              onFocus: () => setHovered(key),
+              onBlur: (event) => {
+                if (event.currentTarget.contains(event.relatedTarget)) return
+                setHovered((current) => (current === key ? '' : current))
+              },
+              style: {
+                position: 'relative',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '4px',
+                padding: '3px',
+                borderRadius: '9px',
+                cursor: 'pointer',
+                outline: 'none',
+                boxSizing: 'border-box',
+                border: active
+                  ? '2px solid var(--dsw-alias-brand-primary)'
+                  : '2px solid transparent',
+                background: active || visible
+                  ? 'var(--dsw-alias-bg-layer-2)'
+                  : 'transparent',
+              },
+            },
+            h('div', {
+              style: {
+                position: 'relative',
+                width: '100%',
+                aspectRatio: '16 / 10',
+                borderRadius: '6px',
+                overflow: 'hidden',
+                background: 'var(--dsw-alias-bg-layer-2)',
+              },
+            },
+            item.kind === 'video'
+              ? h('span', {
+                  style: {
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '100%',
+                    height: '100%',
+                    fontSize: '12px',
+                    color: 'var(--dsw-alias-label-secondary)',
+                  },
+                }, '▶')
+              : h('img', {
+                  src: item.src,
+                  alt: '',
+                  loading: 'lazy',
+                  decoding: 'async',
+                  style: { width: '100%', height: '100%', objectFit: 'cover', display: 'block' },
+                }),
+            h('button', {
+              type: 'button',
+              title: props.deleteLabel,
+              'aria-label': props.deleteLabel,
+              tabIndex: visible ? 0 : -1,
+              onClick: (event) => {
+                event.stopPropagation()
+                onRemove()
+              },
+              onKeyDown: (event) => event.stopPropagation(),
+              style: {
+                position: 'absolute',
+                top: '5px',
+                right: '5px',
+                width: '20px',
+                height: '20px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: 0,
+                border: 'none',
+                borderRadius: '50%',
+                background: 'rgba(0, 0, 0, 0.56)',
+                color: '#ffffff',
+                fontFamily: 'inherit',
+                fontSize: '13px',
+                lineHeight: 1,
+                cursor: 'pointer',
+                opacity: visible ? 1 : 0,
+                transition: 'opacity .12s ease',
+                pointerEvents: visible ? 'auto' : 'none',
+              },
+            }, '×')),
+            h('div', {
+              style: {
+                fontSize: '10px',
+                lineHeight: 1.5,
+                color: 'var(--dsw-alias-label-secondary)',
+                padding: '0 2px',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              },
+            }, captionOf(item)))
+          }
+
+          // Cached image-URL pictures sit in the same grid as the playlist:
+          // there is no separate section heading, so the box keeps looking like
+          // the thumbnail grid it has always been.
+          const entries = items
+            .map((item, position) => ({ item, cached: false, position }))
+            .concat(cached.map((item) => ({ item, cached: true })))
 
           return h('div', { style: { padding: '16px 0 0' } },
             h('div', {
               style: { display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '12px' },
             },
-            h('div', { style: labelStyle }, isEmpty ? props.title : `${props.title} · ${items.length}`),
-            !isEmpty && props.onClear
+            h('div', { style: labelStyle }, isEmpty ? props.title : `${props.title} · ${total}`),
+            !isEmpty && items.length > 0 && props.onClear
               ? h('button', {
                   type: 'button',
                   onClick: () => {
@@ -995,20 +1174,7 @@ window.__ModuleLoader__.load({
                 }, confirmClear ? props.confirmLabel : props.clearLabel)
               : null),
             h('div', { style: descStyle }, props.hint),
-            h('div', {
-              style: {
-                marginTop: '8px',
-                height: `${GALLERY_HEIGHT}px`,
-                boxSizing: 'border-box',
-                padding: '10px',
-                border: '1px solid var(--dsw-alias-border-l1)',
-                borderRadius: '10px',
-                background: 'var(--dsw-alias-bg-layer-1)',
-                overflowY: 'auto',
-                overflowX: 'hidden',
-                overscrollBehavior: 'contain',
-              },
-            },
+            h('div', { style: boxStyle },
             isEmpty
               ? h('div', {
                   style: {
@@ -1021,129 +1187,13 @@ window.__ModuleLoader__.load({
                     color: 'var(--dsw-alias-label-secondary)',
                   },
                 }, props.empty)
-              : h('div', {
-                  style: {
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(108px, 1fr))',
-                    gap: '8px',
-                  },
-                }, items.map((item, position) => {
-                  const key = item.src
-                  const active = position === props.index
-                  const visible = hovered === key
-                  return h('div', {
-                    key,
-                    role: 'button',
-                    tabIndex: 0,
-                    title: item.label || item.src,
-                    'aria-label': item.label || item.src,
-                    'aria-current': active ? 'true' : undefined,
-                    onClick: () => props.onSelect(position),
-                    onKeyDown: (event) => {
-                      if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault()
-                        props.onSelect(position)
-                      }
-                    },
-                    onMouseEnter: () => setHovered(key),
-                    onMouseLeave: () => setHovered((current) => (current === key ? '' : current)),
-                    onFocus: () => setHovered(key),
-                    onBlur: (event) => {
-                      if (event.currentTarget.contains(event.relatedTarget)) return
-                      setHovered((current) => (current === key ? '' : current))
-                    },
-                    style: {
-                      position: 'relative',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '4px',
-                      padding: '3px',
-                      borderRadius: '9px',
-                      cursor: 'pointer',
-                      outline: 'none',
-                      boxSizing: 'border-box',
-                      border: active
-                        ? '2px solid var(--dsw-alias-brand-primary)'
-                        : '2px solid transparent',
-                      background: active || visible
-                        ? 'var(--dsw-alias-bg-layer-2)'
-                        : 'transparent',
-                    },
-                  },
-                  h('div', {
-                    style: {
-                      position: 'relative',
-                      width: '100%',
-                      aspectRatio: '16 / 10',
-                      borderRadius: '6px',
-                      overflow: 'hidden',
-                      background: 'var(--dsw-alias-bg-layer-2)',
-                    },
-                  },
-                  item.kind === 'video'
-                    ? h('span', {
-                        style: {
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          width: '100%',
-                          height: '100%',
-                          fontSize: '12px',
-                          color: 'var(--dsw-alias-label-secondary)',
-                        },
-                      }, '▶')
-                    : h('img', {
-                        src: item.src,
-                        alt: '',
-                        loading: 'lazy',
-                        decoding: 'async',
-                        style: { width: '100%', height: '100%', objectFit: 'cover', display: 'block' },
-                      }),
-                  h('button', {
-                    type: 'button',
-                    title: props.deleteLabel,
-                    'aria-label': props.deleteLabel,
-                    tabIndex: visible ? 0 : -1,
-                    onClick: (event) => {
-                      event.stopPropagation()
-                      props.onRemove(item, position)
-                    },
-                    onKeyDown: (event) => event.stopPropagation(),
-                    style: {
-                      position: 'absolute',
-                      top: '5px',
-                      right: '5px',
-                      width: '20px',
-                      height: '20px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      padding: 0,
-                      border: 'none',
-                      borderRadius: '50%',
-                      background: 'rgba(0, 0, 0, 0.56)',
-                      color: '#ffffff',
-                      fontFamily: 'inherit',
-                      fontSize: '13px',
-                      lineHeight: 1,
-                      cursor: 'pointer',
-                      opacity: visible ? 1 : 0,
-                      transition: 'opacity .12s ease',
-                      pointerEvents: visible ? 'auto' : 'none',
-                    },
-                  }, '×')),
-                  h('div', {
-                    style: {
-                      fontSize: '10px',
-                      lineHeight: 1.5,
-                      color: 'var(--dsw-alias-label-secondary)',
-                      padding: '0 2px',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    },
-                  }, fileName(item.label) || item.src))
-                }))))
+              : h('div', { style: gridStyle },
+                  entries.map((entry) => tile(
+                    entry.item,
+                    entry.cached ? props.previewSrc === entry.item.src : props.index === entry.position,
+                    () => (entry.cached ? props.onSelectCached(entry.item) : props.onSelect(entry.position)),
+                    () => (entry.cached ? props.onRemoveCached(entry.item) : props.onRemove(entry.item, entry.position)),
+                  )))))
         }
 
         function SourceTabs(props) {
@@ -1204,13 +1254,11 @@ window.__ModuleLoader__.load({
           if (state.paused) statusBits.push(t('statusPaused'))
 
           /*
-           * A single source has nothing to switch between: `advance` would
-           * re-render the same picture (and a cached image URL returns the very
-           * same file), so the buttons would look dead. Say so instead of
-           * staying silent — except for an uncached image URL, which really does
-           * hand out a fresh picture on every request.
+           * Only local and Wallpaper Engine sources with one item really have
+           * nothing to switch to. In image-URL mode next/previous asks the Host
+           * for a fresh (cached) picture, so those buttons are never dead.
            */
-          const onlyOne = state.items.length === 1 && !(config.source === 'urls' && config.cacheUrls === false)
+          const onlyOne = state.items.length === 1 && config.source !== 'urls'
 
           const hiddenEntries = () => (Array.isArray(config.hidden) ? config.hidden : [])
 
@@ -1319,12 +1367,52 @@ window.__ModuleLoader__.load({
             patchConfig(patch)
           }
 
+          // Cached image-URL pictures are one file each; the tile's × removes
+          // that file from the Host's cache folder.
+          const removeCachedItem = async (item) => {
+            if (item === undefined || typeof item.cacheId !== 'string') return
+            try {
+              const response = await fetch(`${API}/cache?id=${encodeURIComponent(item.cacheId)}`, { method: 'DELETE' })
+              if (!response.ok) throw new Error(`HTTP ${response.status}`)
+              if (state.preview !== null && state.preview.src === item.src) state.preview = null
+              setState({ cache: state.cache.filter((entry) => entry.src !== item.src) })
+              sync()
+            } catch (error) {
+              setState({ notice: errorText(error) })
+            }
+          }
+
+          const cacheCaption = (item) => {
+            const date = new Date(Number(item.savedAt) || 0)
+            if (Number.isNaN(date.getTime())) return ''
+            const pad = (value) => String(value).padStart(2, '0')
+            return `${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
+          }
+
           const clearSource = () => {
             if (source === 'urls') patchConfig({ urls: [] })
             else if (source === 'local') patchConfig({ files: [], folders: [], hidden: [] })
           }
 
           const source = config.source === 'local' || config.source === 'wallpaper' ? config.source : 'urls'
+
+          // The image-URL item already shows the newest cached picture for its
+          // address, so drop that one duplicate from the gallery; the older
+          // archived pictures are the ones worth showing. Doing it here (and
+          // not only in the Host) keeps it working against a Host that has not
+          // been restarted yet.
+          const galleryCache = (() => {
+            if (source !== 'urls') return []
+            if (config.cacheUrls === false) return state.cache
+            const configured = new Set(config.urls)
+            const seen = new Set()
+            return state.cache.filter((entry) => {
+              if (!configured.has(entry.label)) return true
+              if (seen.has(entry.label)) return true
+              seen.add(entry.label)
+              return false
+            })
+          })()
 
           return column([
             h(GroupTitle, { key: 'source-title' }, t('sourceGroup')),
@@ -1469,9 +1557,14 @@ window.__ModuleLoader__.load({
               clearLabel: t('clearAll'),
               confirmLabel: t('clearConfirm'),
               items: state.items,
-              index: state.index,
+              index: state.preview !== null ? -1 : state.index,
+              cached: galleryCache,
+              previewSrc: state.preview !== null ? state.preview.src : '',
+              cacheCaption,
               onSelect: (position) => select(position),
+              onSelectCached: previewCache,
               onRemove: removePlaylistItem,
+              onRemoveCached: removeCachedItem,
               onClear: source === 'wallpaper' ? null : clearSource,
             }),
 
@@ -1626,7 +1719,7 @@ window.__ModuleLoader__.load({
               },
             },
             h('div', null, statusBits.join(' · ')),
-            state.items.length > 0
+            state.preview !== null
               ? h('div', {
                   style: {
                     overflow: 'hidden',
@@ -1634,8 +1727,17 @@ window.__ModuleLoader__.load({
                     whiteSpace: 'nowrap',
                     direction: 'ltr',
                   },
-                }, `${t('currentItem')} ${state.index + 1}/${state.items.length} · ${state.items[Math.min(state.index, state.items.length - 1)].label || state.items[Math.min(state.index, state.items.length - 1)].src}`)
-              : null,
+                }, `${t('currentItem')} ${t('cachedItem')} · ${state.preview.label || state.preview.src}`)
+              : state.items.length > 0
+                ? h('div', {
+                    style: {
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      direction: 'ltr',
+                    },
+                  }, `${t('currentItem')} ${state.index + 1}/${state.items.length} · ${state.items[Math.min(state.index, state.items.length - 1)].label || state.items[Math.min(state.index, state.items.length - 1)].src}`)
+                : null,
             state.lastError !== ''
               ? h('div', { style: { color: 'var(--dsw-alias-state-warn-primary)' } }, `${t('loadFailed')} ${state.lastError}`)
               : null,
