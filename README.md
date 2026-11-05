@@ -8,7 +8,7 @@
 
 图床直链、本地图片、Wallpaper Engine 库都能当壁纸，配合透明度、模糊、轮播和快捷键，把工作台变成你自己的桌面。
 
-[功能](#-功能) · [安装](#-安装) · [使用](#-使用) · [配置](#-配置项) · [实现](#-实现) · [开发](#-开发) · [English](#english)
+[功能](#-功能) · [安装](#-安装) · [使用](#-使用) · [配置](#-配置项) · [实现](#-实现) · [开发](#-开发) · [更新记录](#-更新记录) · [English](#english)
 
 </div>
 
@@ -17,7 +17,7 @@
 ## ✨ 功能
 
 - **三种壁纸来源**
-  - **图床链接**：每行一个 `https://…` 直链，jpg / png / webp / gif / avif 甚至 mp4 视频都行；可把图片缓存到本地，避免每次刷新都重新下载。
+  - **图床链接**：每行一个 `https://…` 直链，jpg / png / webp / gif / avif 甚至 mp4 视频都行；每次切换都会重新取图并按地址存档，旧图留在「已加载图片」里，重启后仍在。
   - **本地图片**：填单个文件或整个目录，也可以在设置里点「选择文件夹」直接导入（导入的是副本，原文件不动）。
   - **Wallpaper Engine**：指向创意工坊 `431960` 目录或任意已下载壁纸目录，自动扫描里面的图片和视频，视频会静音循环播放。
 - **一眼好看的外观**：壁纸透明度、高斯模糊、界面不透明度（让侧边栏和面板半透明，壁纸透出来）三个滑杆，只看你想看的那一层。
@@ -63,7 +63,7 @@ pnpm add github:Avan0203/dsh-skin
 
 ```bash
 cd "$HOME/.dsh/profiles/desktop"
-pnpm add ./dsh-skin-1.0.1.tgz
+pnpm add ./dsh-skin-1.0.2.tgz
 ```
 
 并同样把 `"dsh-skin"` 加进 `dsh.profile.bundles`，重启 DSH。
@@ -87,7 +87,7 @@ pnpm add link:/绝对路径/dsh-skin
 | 分区 | 你可以做什么 |
 | --- | --- |
 | **图片来源** | 在「图床链接 / 本地图片 / Wallpaper Engine」之间切换；三选一，切换后立即重新加载。 |
-| **图床链接** | 粘贴直链、开关本地缓存、指定缓存目录。 |
+| **图床链接** | 粘贴直链、开关本地缓存、指定缓存目录；下载过的图床图都会留在「已加载图片」里。 |
 | **本地图片** | 添加文件或目录、点「选择文件夹」批量导入、在缩略图里点选或删除单张。 |
 | **Wallpaper Engine** | 填创意工坊目录并「重新扫描」。 |
 | **外观** | 背景图透明度、界面不透明度、模糊程度。 |
@@ -98,6 +98,7 @@ pnpm add link:/绝对路径/dsh-skin
 
 - 「界面不透明度」调到 100 时界面完全不透明，壁纸只在边缘透出来；调到 40~70 最好看。设置弹窗始终保持不透明，不影响阅读。
 - 图床地址每次请求可能返回不同的图片，所以图床来源按顺序轮播，**随机播放只对本地图片和 Wallpaper Engine 库生效**。
+- 图床图片按地址分文件夹缓存：每次切到图床地址都会重新取一张并另存，旧图不会被覆盖；「已加载图片」里也会出现以前的缓存图，重启后仍然保留，点缩略图即可切回，悬停点 × 可删掉单张。当前地址正在显示的那张不会重复列出，切走之后它会作为历史图留下。
 - 视频不循环、播完切下一张时，轮播间隔对视频不生效，由视频时长决定。
 
 ## ⚙️ 配置项
@@ -112,7 +113,7 @@ pnpm add link:/绝对路径/dsh-skin
 | `folders` | `[]` | 最多 50 条 | 本地图片 / 视频目录。 |
 | `files` | `[]` | 最多 200 条 | 本地单个媒体文件。 |
 | `hidden` | `[]` | 最多 1000 条 | 已隐藏（删除）的条目。 |
-| `cacheUrls` | `true` | 布尔 | 是否把图床图片缓存到本地。 |
+| `cacheUrls` | `true` | 布尔 | 开启后每次切到图床图都会重新下载一张并另存，旧图不覆盖；关闭后每次都直接请求图床，不落盘（已缓存的旧图仍会列出）。 |
 | `cacheDir` | `""` | 路径 | 缓存目录，留空用 `$DSH_HOME/data/dsh-skin/library`。 |
 | `wallpaperDir` | `""` | 路径 | Wallpaper Engine 创意工坊目录。 |
 | `opacity` | `100` | 0–100 | 壁纸本身的透明度。 |
@@ -148,11 +149,25 @@ HTTP 路由（均挂在 `/plugin-skin` 前缀下）：
 
 | 方法 | 路径 | 用途 |
 | --- | --- | --- |
-| `GET` | `/plugin-skin/state` | 读配置 + 当前播放列表，`?refresh=1` 强制重扫目录。 |
+| `GET` | `/plugin-skin/state` | 读配置 + 当前播放列表，`?refresh=1` 强制重扫目录；同时返回已缓存的图床图片。 |
 | `POST` | `/plugin-skin/config` | 保存整份配置（JSON），立即重建播放列表。 |
 | `GET`/`HEAD` | `/plugin-skin/media?path=…` | 流式读取本地媒体文件。 |
-| `GET`/`HEAD` | `/plugin-skin/remote?url=…` | 代理并缓存图床图片；缓存失败时 302 回原地址。 |
+| `GET`/`HEAD` | `/plugin-skin/remote?url=…` | 代理并缓存图床图片；`&fresh=1` 取一张新的并另存；缓存失败时 302 回原地址。 |
+| `GET` | `/plugin-skin/cache` | 列出 `url-cache/` 下所有已缓存的图床图片。 |
+| `GET`/`HEAD` | `/plugin-skin/cache?id=…` | 读取某一张缓存图。 |
+| `DELETE` | `/plugin-skin/cache?id=…` | 删除某一张缓存图。 |
 | `POST` | `/plugin-skin/upload?name=…` | 「选择文件夹」导入时把文件写入缓存目录。 |
+
+图床缓存的目录结构（`cacheDir` 留空时在 `$DSH_HOME/data/dsh-skin/library`）：
+
+```
+url-cache/
+└── <sha1(地址) 前 24 位>/
+    ├── meta.json                  # 原始地址、ETag、最近一次的文件
+    └── <时间戳>-<随机>.<扩展名>    # 每次取回的新图各存一份，互不覆盖
+```
+
+缓存不会自动清理：每切一次图床地址就多一张，单张可以在「已加载图片」里点 × 删除；列表最多展示最近 5000 张。
 
 安全边界：
 
@@ -178,14 +193,23 @@ npm run pack    # 打包成 dist/dsh-skin-<version>.tgz
 先看面板底部「当前 x/y」。三种来源是**互斥**的，只使用当前选中的那一个：
 
 - 如果你导入过本地图片，要点一下「本地图片」标签，列表才会变成那些图；
-- 图床只有一个地址、并且开着「缓存图床图片到本地」时，来回切都是同一张缓存图——要每次取新图就关掉缓存，或者多加几个地址；
+- 图床模式每次切到地址都会重新取一张并缓存，所以「下一张」拿到的是一张新图（对方如果一直返回同一张，就还是同一张）；切回看过的图，去「已加载图片」里点；
 - 只有 1 张可用壁纸时，面板会直接给出提示，而不是默默无反应。
+
+**图床缓存会不会越攒越多？**
+会。每取回一张图就存一份，不会自动清理；在「已加载图片」里悬停点 × 可以单张删除，也可以直接清空缓存目录。缓存目录里的文件重启 DSH 后仍会列出来。
 
 **壁纸不显示？**
 确认「启用背景」是开的、来源不是空的；如果图片被移动或删除，面板底部会列出失败的来源。
 
 **改代码后没生效？**
 改 `client.js` 刷新页面即可；改 `index.js`（Host 半边）必须重启 DSH。
+
+## 🗒 更新记录
+
+- **1.0.2** — 图床图片按地址存档：每次切到某个地址都会重新取一张并另存，旧图留在「已加载图片」里，重启后仍在，点缩略图可切回、悬停点 × 单张删除；新增 `/plugin-skin/cache` 的列出 / 读取 / 删除路由，`/plugin-skin/remote` 支持 `fresh=1`。
+- **1.0.1** — 只有 1 张可用壁纸时，面板直接说明「上一张 / 下一张」为什么没有反应，不再默默无提示。
+- **1.0.0** — 首个版本：图床链接 / 本地图片 / Wallpaper Engine 三种来源，透明度、模糊、界面不透明度、轮播与快捷键。
 
 ## 📄 License
 
@@ -197,7 +221,7 @@ npm run pack    # 打包成 dist/dsh-skin-<version>.tgz
 
 **dsh-skin** paints a wallpaper behind the whole DeepSeek Harness UI — from image URLs, local files, or a Wallpaper Engine workshop folder.
 
-- **Sources:** image/video URLs (optionally cached to disk), local files and folders, Wallpaper Engine `431960` libraries.
+- **Sources:** image/video URLs (every fetched picture is archived per URL and stays under “Loaded images”), local files and folders, Wallpaper Engine `431960` libraries.
 - **Look:** wallpaper opacity, Gaussian blur, and a translucent-UI opacity so panels and sidebar let the wallpaper through. Dialogs stay opaque.
 - **Playback:** interval (3 s – 24 h), random order, cross-fade, video auto-advance or loop, muted by default.
 - **Shortcuts:** previous / next wallpaper, default `Ctrl+Alt+←/→` (`⌘+⌥+Shift` on macOS), rebindable in Settings → General → Shortcuts.
