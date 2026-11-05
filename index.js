@@ -6,7 +6,10 @@
  *
  * 1. It persists the wallpaper settings in `$DSH_HOME/data/dsh-skin/`
  *    (the Web GUI's origin changes with its port, so `localStorage` would not
- *    survive a restart).
+ *    survive a restart). That folder keeps its original name on purpose: the
+ *    package was renamed to `dsh-skin-bg` to avoid a market name collision, and
+ *    moving 100 MB of archived wallpapers would punish existing installs for it.
+ *    The `/plugin-skin` route prefix is kept for the same reason.
  * 2. It serves the media files the settings point at, over a same-origin route,
  *    limited to the configured roots and to image/video extensions.
  *

@@ -1,6 +1,6 @@
 {
-  "name": "dsh-skin",
-  "version": "1.0.2",
+  "name": "dsh-skin-bg",
+  "version": "1.0.3",
   "description": "Wallpaper skin for the DeepSeek Harness UI: image URLs, local files, and Wallpaper Engine libraries, with opacity, blur, slideshow, random order and shortcuts.",
   "type": "module",
   "icon": "icon.svg",

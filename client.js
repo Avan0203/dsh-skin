@@ -6,12 +6,12 @@
  * the visual parameters. Settings are persisted by the Host half.
  */
 window.__ModuleLoader__.load({
-  id: 'dsh-skin',
+  id: 'dsh-skin-bg',
   factory(require) {
     const React = require('react')
     const h = React.createElement
     const { Button: UiButton, Switch } = require('@deepseek-ai/dsh-client-ui-primitives')
-    const NS = 'dsh-skin'
+    const NS = 'dsh-skin-bg'
     const API = '/plugin-skin'
 
     const ZH = {
@@ -353,7 +353,7 @@ window.__ModuleLoader__.load({
           if (!document.body) return null
           ensureBase()
           const element = document.createElement('div')
-          element.setAttribute('data-dsh-skin', '')
+          element.setAttribute('data-dsh-skin-bg', '')
           element.setAttribute('aria-hidden', 'true')
           element.style.cssText = [
             'position:fixed',
@@ -638,7 +638,7 @@ window.__ModuleLoader__.load({
           }
           if (dialogSurface === null) {
             dialogSurface = document.createElement('style')
-            dialogSurface.setAttribute('data-dsh-skin-dialog', '')
+            dialogSurface.setAttribute('data-dsh-skin-bg-dialog', '')
             document.head.appendChild(dialogSurface)
           }
           const css = `[role="dialog"],[aria-modal="true"]{--dsw-alias-bg-layer-2:${dialogLayer2}}`
@@ -1817,7 +1817,7 @@ window.__ModuleLoader__.load({
           }
         }
         const nextRegistration = registerShortcut({
-          id: 'dsh-skin.next',
+          id: 'dsh-skin-bg.next',
           label: () => t('shortcutNext'),
           aliases: ['background', 'wallpaper', 'next', '壁纸', '下一张'],
           defaults: nextDefaults,
@@ -1826,7 +1826,7 @@ window.__ModuleLoader__.load({
           resolve: () => ({ status: 'handled', run: () => advance(1, false) }),
         })
         const previousRegistration = registerShortcut({
-          id: 'dsh-skin.previous',
+          id: 'dsh-skin-bg.previous',
           label: () => t('shortcutPrev'),
           aliases: ['background', 'wallpaper', 'previous', '壁纸', '上一张'],
           defaults: previousDefaults,
