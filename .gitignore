@@ -6,3 +6,8 @@ dist/
 Thumbs.db
 .vscode/
 .idea/
+
+# local scratch: demo media and one-off scripts used for README screenshots
+.demo/
+.tmp/
+.playwright-mcp/

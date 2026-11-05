@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="icon.svg" width="88" height="88" alt="dsh-skin" />
+<img src="icon.svg" width="88" height="88" alt="dsh-skin-bg" />
 
-# dsh-skin
+# dsh-skin-bg
 
 **给 DeepSeek Harness 界面铺一层壁纸的插件。**
 
@@ -32,7 +32,7 @@
 
 ### 方式一：从 GitHub 安装（推荐）
 
-DSH 的插件是装在 **profile** 里的普通 npm 包。找到你的 profile 目录（默认 `~/.dsh/profiles/desktop`，Windows 下是 `%USERPROFILE%\.dsh\profiles\desktop`），执行：
+DSH 的插件是装在 **profile** 里的普通 npm 包。找到你的 profile 目录（默认 `~/.dsh/profiles/desktop`，Windows 下是 `%USERPROFILE%\\.dsh\\profiles\\desktop`），执行：
 
 ```bash
 cd "$HOME/.dsh/profiles/desktop"
@@ -48,7 +48,7 @@ pnpm add github:Avan0203/dsh-skin
       "bundles": [
         "@deepseek-ai/dsh-base",
         "@deepseek-ai/dsh-web-app",
-        "dsh-skin"
+        "dsh-skin-bg"
       ]
     }
   }
@@ -59,14 +59,14 @@ pnpm add github:Avan0203/dsh-skin
 
 ### 方式二：用 Release 里的压缩包
 
-从 [Releases](https://github.com/Avan0203/dsh-skin/releases) 下载最新的 `dsh-skin-<版本>.tgz`（若该版本没附带压缩包，用方式一，或 GitHub 自动生成的 Source code 压缩包），同样放进 profile：
+从 [Releases](https://github.com/Avan0203/dsh-skin/releases) 下载最新的 `dsh-skin-bg-<版本>.tgz`（若该版本没附带压缩包，用方式一，或 GitHub 自动生成的 Source code 压缩包），同样放进 profile：
 
 ```bash
 cd "$HOME/.dsh/profiles/desktop"
-pnpm add ./dsh-skin-1.0.2.tgz
+pnpm add ./dsh-skin-bg-1.0.3.tgz
 ```
 
-并同样把 `"dsh-skin"` 加进 `dsh.profile.bundles`，重启 DSH。
+并同样把 `"dsh-skin-bg"` 加进 `dsh.profile.bundles`，重启 DSH。
 
 ### 方式三：本地开发（link）
 
@@ -78,7 +78,16 @@ cd "$HOME/.dsh/profiles/desktop"
 pnpm add link:/绝对路径/dsh-skin
 ```
 
-再把 `"dsh-skin"` 加入 `dsh.profile.bundles` 并重启。之后改 `client.js` 刷新页面即可生效，改 `index.js`（Host 半边）需要重启 DSH。
+再把 `"dsh-skin-bg"` 加入 `dsh.profile.bundles` 并重启。之后改 `client.js` 刷新页面即可生效，改 `index.js`（Host 半边）需要重启 DSH。
+
+### 从 1.0.x 升级（包名变更）
+
+包名从 `dsh-skin` 改成了 `dsh-skin-bg`——`dsh-skin` 这个名字在 npm 和插件市场索引里都已被别人的同名插件占用，同名安装会装到别人的包上。升级只需要：
+
+1. profile 的 `package.json` 里把 `dsh-skin` 换成 `dsh-skin-bg`（依赖与 `dsh.profile.bundles` 两处）；
+2. `pnpm install`，重启 DSH。
+
+**你的设置和已存档的壁纸不会动**：数据目录仍是 `$DSH_HOME/data/dsh-skin/`，HTTP 路由前缀仍是 `/plugin-skin`，两者都刻意保持原样，免得为了一次改名搬走几百 MB 图片。唯一会变的是快捷键 id（`dsh-skin.next` → `dsh-skin-bg.next`），自定义过按键的话需要在 设置 → 通用 → 快捷键 里重设一次。
 
 ## 🖼 使用
 
@@ -132,7 +141,7 @@ pnpm add link:/绝对路径/dsh-skin
 插件分成两半，各管一件事：
 
 ```
-dsh-skin/
+dsh-skin-bg/
 ├── index.js           # Host 半边：持久化配置 + 以同源 HTTP 路由供媒体文件
 ├── client.js          # 浏览器半边：壁纸层、轮播、设置页、快捷键
 ├── cordis.patch.yml   # 往 profile 里 insert 这个 bundle
@@ -182,10 +191,19 @@ url-cache/
 
 ```bash
 npm run check   # 语法自检
-npm run pack    # 打包成 dist/dsh-skin-<version>.tgz
+npm run pack    # 打包成 dist/dsh-skin-bg-<version>.tgz
 ```
 
 本地调试时用 `link:` 安装（见「方式三」），改完 `client.js` 刷新页面，改完 `index.js` 重启 DSH。
+
+README 与商店卡片用的素材都是本地生成的，不引用第三方图片：
+
+```bash
+python .demo/make_wallpapers.py   # 生成 6 张 1920x1080 示意图（.demo/wallpapers/）
+python .demo/make_icon.py         # 由 icon.svg 的几何重绘 assets/icon-180.png
+```
+
+`.demo/` 与 `.tmp/` 只是本地草稿目录，已在 `.gitignore` 里；提交进仓库的只有 `assets/icon-180.png`（插件市场卡片用的位图，SVG 会被商店拒绝）。
 
 ## ❓ 常见问题
 
@@ -207,6 +225,7 @@ npm run pack    # 打包成 dist/dsh-skin-<version>.tgz
 
 ## 🗒 更新记录
 
+- **1.0.3** — 包名改为 `dsh-skin-bg`：`dsh-skin` 在 npm 和插件市场索引里都已被别人的同名插件占用，同名安装会装到别人的包上。设置与已存档壁纸不动，数据目录仍是 `.dsh/data/dsh-skin/`、HTTP 路由仍是 `/plugin-skin`；只有快捷键 id 变成 `dsh-skin-bg.next/previous`，自定义过按键的需要重设一次。新增商店卡片位图 `assets/icon-180.png`。
 - **1.0.2** — 图床图片按地址存档：每次切到某个地址都会重新取一张并另存，旧图留在「已加载图片」里，重启后仍在，点缩略图可切回、悬停点 × 单张删除；新增 `/plugin-skin/cache` 的列出 / 读取 / 删除路由，`/plugin-skin/remote` 支持 `fresh=1`。
 - **1.0.1** — 只有 1 张可用壁纸时，面板直接说明「上一张 / 下一张」为什么没有反应，不再默默无提示。
 - **1.0.0** — 首个版本：图床链接 / 本地图片 / Wallpaper Engine 三种来源，透明度、模糊、界面不透明度、轮播与快捷键。
@@ -219,7 +238,7 @@ npm run pack    # 打包成 dist/dsh-skin-<version>.tgz
 
 ## English
 
-**dsh-skin** paints a wallpaper behind the whole DeepSeek Harness UI — from image URLs, local files, or a Wallpaper Engine workshop folder.
+**dsh-skin-bg** paints a wallpaper behind the whole DeepSeek Harness UI — from image URLs, local files, or a Wallpaper Engine workshop folder.
 
 - **Sources:** image/video URLs (every fetched picture is archived per URL and stays under “Loaded images”), local files and folders, Wallpaper Engine `431960` libraries.
 - **Look:** wallpaper opacity, Gaussian blur, and a translucent-UI opacity so panels and sidebar let the wallpaper through. Dialogs stay opaque.
@@ -234,9 +253,11 @@ cd "$HOME/.dsh/profiles/desktop"      # your DSH profile
 pnpm add github:Avan0203/dsh-skin
 ```
 
-Add `"dsh-skin"` to `dsh.profile.bundles` in that profile's `package.json`, restart DSH, then open **Settings → Background Wallpaper**.
+Add `"dsh-skin-bg"` to `dsh.profile.bundles` in that profile's `package.json`, restart DSH, then open **Settings → Background Wallpaper**.
 
-Requires a DSH build providing the `webServer` service. Settings live in `$DSH_HOME/data/dsh-skin/config.json`.
+The package used to be called `dsh-skin`; that name is already taken on npm and in the market index by other authors' plugins, so installing by that name would fetch someone else's package. Your settings and archived wallpapers are untouched by the rename: they still live in `$DSH_HOME/data/dsh-skin/`, and the routes still sit under `/plugin-skin`. Only the shortcut ids changed (`dsh-skin.next` → `dsh-skin-bg.next`), so a custom key binding has to be set once more.
+
+Requires a DSH build providing the `webServer` service.
 
 ### License
 
