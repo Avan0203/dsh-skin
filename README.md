@@ -8,11 +8,29 @@
 
 图床直链、本地图片、Wallpaper Engine 库都能当壁纸，配合透明度、模糊、轮播和快捷键，把工作台变成你自己的桌面。
 
-[功能](#-功能) · [安装](#-安装) · [使用](#-使用) · [配置](#-配置项) · [实现](#-实现) · [开发](#-开发) · [更新记录](#-更新记录) · [English](#english)
+[截图](#-截图) · [功能](#-功能) · [安装](#-安装) · [使用](#-使用) · [配置](#-配置项) · [实现](#-实现) · [开发](#-开发) · [更新记录](#-更新记录) · [English](#english)
 
 </div>
 
 ---
+
+## 📸 截图
+
+三张都来自真实运行的 DSH，壁纸与存档图都是插件自己取回/读取的。
+
+图床来源 + 半透明界面（暗色主题）：壁纸铺满整窗，侧边栏、面板、输入框都透出画面，弹窗保持实心。
+
+![壁纸铺满整窗，界面半透明](assets/screenshot-1.jpg)
+
+浅色壁纸同样成立——透明度是跟着当前主题令牌走的，不挑配色。
+
+![浅色壁纸下的界面](assets/screenshot-2.jpg)
+
+**设置 → 背景壁纸**：来源三选一、图床地址、缓存开关与缓存目录、以及「已加载图片」里的图床存档（这张图里 122 张）。
+
+![设置页 · 背景壁纸](assets/screenshot-3.png)
+
+> 截图里的壁纸与存档是插件从你填入的来源取回的第三方图片，版权归原图作者；仓库自带的素材只有 `icon.svg` 与 `assets/icon-180.png`（本地重绘生成）。
 
 ## ✨ 功能
 
@@ -25,6 +43,31 @@
 - **键盘快捷键**：上一张 / 下一张，默认 `Ctrl+Alt+←` 和 `Ctrl+Alt+→`（macOS 为 `⌘+⌥+Shift`），支持在 设置 → 通用 → 快捷键 里改键。
 - **中英双语**，跟随 DSH 的语言设置。
 - **纯本地**：不联网、不上传、不统计；只有你主动添加的图床地址会被请求。
+
+### 功能与特性一览
+
+| 类别 | 具体支持 |
+| --- | --- |
+| 壁纸来源 | 图床直链（`https://`，每行一个，最多 100 条）、本地单个文件（最多 200 条）、本地整个目录（最多 50 条）、Wallpaper Engine 创意工坊 `431960` 或任意已下载壁纸目录；三选一互斥，切换后立即重建播放列表 |
+| 图床存档 | 每次切到某个地址都带 `fresh=1` 重新取一张并另存，旧图按地址分文件夹保留、互不覆盖；「已加载图片」点缩略图立即切回，悬停点 × 删单张，右上「清空」清掉当前来源的地址列表（不删缓存文件）；存档跨重启保留，列表最多 5000 张 |
+| 图床缓存开关 | `cacheUrls` 开启：落盘并按地址存档；关闭：每次都直接请求图床、不写盘（历史存档仍然列出）；静态地址只回源校验时只保留一份，不会白白堆文件 |
+| 媒体格式 | 图片 `png jpg jpeg jfif webp gif avif bmp svg`；视频 `mp4 webm ogv mov m4v` |
+| 外观 | 壁纸透明度 0–100、高斯模糊 0–80 px、界面不透明度 0–100；界面层是通过改写 `--dsw-alias-bg-base`、`--dsw-specific-sidebar-fill`、`--dsw-alias-bg-layer-1/2`、`--dsw-alias-bg-overlay` 的 alpha 实现的，读取的是**当前**令牌值，所以别的皮肤换的配色会照样透出壁纸；`[role="dialog"]` / `[aria-modal="true"]` 用同一令牌的不透明副本兜住，弹窗始终实心 |
+| 播放 | 轮播间隔 3 秒～24 小时、随机顺序、0–5 秒交叉淡入淡出、视频「播完自动切」或循环、默认静音（自动播放被浏览器拦截时自动回退成静音） |
+| 面板控制 | 上一张 / 下一张 / 暂停轮播；底部显示「当前 x/y」与「已暂停」；只有 1 张可用壁纸时直接说明没有可切换的对象；读取失败的来源列在面板底部（最多 4 条） |
+| 快捷键 | `dsh-skin-bg.next` / `dsh-skin-bg.previous` 两条命令，默认 `Ctrl+Alt+←/→`（macOS `⌘+⌥+Shift`），别名含 `背景 / 壁纸 / wallpaper / previous / next`，在 设置 → 通用 → 快捷键 里改键；注册失败会在面板里说明而不是静默忽略 |
+| 本地导入 | 「选择文件夹」把其中的图片/视频复制进缓存目录（单次最多 200 个文件、单文件上限 64 MB），原文件不动；缩略图里可点选或单张删除 |
+| 语言 | 中英双语界面文案与设置说明，跟随 DSH 语言切换 |
+| 隐私 | 除你主动添加的图床地址外不发起任何外部请求；不上传、不统计、不写远端；本地媒体只经 `127.0.0.1` 同源路由 |
+| 持久化 | 配置存在 `$DSH_HOME/data/dsh-skin/config.json`；媒体路由支持 `Range`，视频可以拖动播放 |
+| 安全边界 | `media` 只放行当前配置声明过的目录/文件（由 `source` 决定白名单，其余 403）；只放行白名单内的图片/视频扩展名（其余 415）；目录扫描最多 4 层、4000 个条目；远程下载 64 MB 上限、20 秒超时 |
+
+### 已知边界
+
+- **随机播放对图床来源不生效**：图床每个地址每次返回的图可能不同，所以图床按顺序轮播；随机只对本地图片和 Wallpaper Engine 库生效。
+- **视频播完自动切时，轮播间隔对该视频不生效**，切换时机由视频时长决定。
+- 只在 Web UI 渲染，需要带 `webServer` 服务的 DSH 构建；改 `index.js`（Host 半边）必须重启 DSH，改 `client.js` 刷新页面即可。
+- 壁纸层固定在应用框架之下（`z-index:-1`），不遮挡也不替换任何官方控件；与其他皮肤插件同时开启时也不会打架——界面不透明度监听 `theme/change`，每次都用**当时**的令牌值重算 alpha，别的皮肤换的配色照样透出壁纸，本插件不会把自己的颜色盖到别人头上。
 
 ## 📦 安装
 
@@ -196,14 +239,16 @@ npm run pack    # 打包成 dist/dsh-skin-bg-<version>.tgz
 
 本地调试时用 `link:` 安装（见「方式三」），改完 `client.js` 刷新页面，改完 `index.js` 重启 DSH。
 
-README 与商店卡片用的素材都是本地生成的，不引用第三方图片：
+商店卡片图标可以重绘生成（市场只收 GitHub 托管的位图，SVG 会被拒）：
 
 ```bash
-python .demo/make_wallpapers.py   # 生成 6 张 1920x1080 示意图（.demo/wallpapers/）
-python .demo/make_icon.py         # 由 icon.svg 的几何重绘 assets/icon-180.png
+python scripts/make_icon.py         # 由 icon.svg 的几何重绘 assets/icon-180.png
+python scripts/make_wallpapers.py   # 生成 6 张 1920x1080 自绘示意图，用来本地测试来源
 ```
 
-`.demo/` 与 `.tmp/` 只是本地草稿目录，已在 `.gitignore` 里；提交进仓库的只有 `assets/icon-180.png`（插件市场卡片用的位图，SVG 会被商店拒绝）。
+`assets/` 里的三张截图是插件在真实 DSH 里运行时的界面，其中的壁纸与「已加载图片」缩略图来自图床/本地来源，版权归原图作者；`scripts/` 下三个脚本都是纯本地生成，不联网。`.demo/` 与 `.tmp/` 只是草稿目录，已在 `.gitignore` 里。
+
+截图的顺序与用途登记在仓库根的 [`screenshots.json`](screenshots.json)（插件市场 storefront 会读它；不写则回退到从 README 抽取图片）。
 
 ## ❓ 常见问题
 
@@ -225,7 +270,7 @@ python .demo/make_icon.py         # 由 icon.svg 的几何重绘 assets/icon-180
 
 ## 🗒 更新记录
 
-- **1.0.3** — 包名改为 `dsh-skin-bg`：`dsh-skin` 在 npm 和插件市场索引里都已被别人的同名插件占用，同名安装会装到别人的包上。设置与已存档壁纸不动，数据目录仍是 `.dsh/data/dsh-skin/`、HTTP 路由仍是 `/plugin-skin`；只有快捷键 id 变成 `dsh-skin-bg.next/previous`，自定义过按键的需要重设一次。新增商店卡片位图 `assets/icon-180.png`。
+- **1.0.3** — 包名改为 `dsh-skin-bg`：`dsh-skin` 在 npm 和插件市场索引里都已被别人的同名插件占用，同名安装会装到别人的包上。设置与已存档壁纸不动，数据目录仍是 `.dsh/data/dsh-skin/`、HTTP 路由仍是 `/plugin-skin`；只有快捷键 id 变成 `dsh-skin-bg.next/previous`，自定义过按键的需要重设一次。新增商店卡片位图 `assets/icon-180.png`，README 补三张真实运行截图与「功能与特性一览」。
 - **1.0.2** — 图床图片按地址存档：每次切到某个地址都会重新取一张并另存，旧图留在「已加载图片」里，重启后仍在，点缩略图可切回、悬停点 × 单张删除；新增 `/plugin-skin/cache` 的列出 / 读取 / 删除路由，`/plugin-skin/remote` 支持 `fresh=1`。
 - **1.0.1** — 只有 1 张可用壁纸时，面板直接说明「上一张 / 下一张」为什么没有反应，不再默默无提示。
 - **1.0.0** — 首个版本：图床链接 / 本地图片 / Wallpaper Engine 三种来源，透明度、模糊、界面不透明度、轮播与快捷键。
@@ -245,6 +290,12 @@ python .demo/make_icon.py         # 由 icon.svg 的几何重绘 assets/icon-180
 - **Playback:** interval (3 s – 24 h), random order, cross-fade, video auto-advance or loop, muted by default.
 - **Shortcuts:** previous / next wallpaper, default `Ctrl+Alt+←/→` (`⌘+⌥+Shift` on macOS), rebindable in Settings → General → Shortcuts.
 - **Bilingual** (中文 / English), fully local — nothing is uploaded anywhere.
+- **Also supported:** images `png jpg jpeg jfif webp gif avif bmp svg` and video `mp4 webm ogv mov m4v`; per-URL archive with `fresh=1` re-fetch, click-to-restore and single-delete (list capped at 5000, archived files survive restarts); folder import (≤200 files, 64 MB each, originals untouched); Wallpaper Engine scanning (4 levels, 4000 entries); a pause control, `当前 x/y` progress and a failed-source list; same-origin `Range`-capable media streaming, restricted to the roots and extensions the config declares (403 / 415 otherwise, 20 s remote timeout).
+- **Deliberately not:** random order for image-URL sources (a URL may return a different picture each time, so those rotate in order); interval-based switching for videos set to auto-advance (their own duration decides); any theme-token takeover — the translucent layer recomputes alpha from the *current* tokens on every `theme/change`, so other skins keep their palette and still show through.
+
+### Screenshots
+
+See [📸 截图](#-截图) above: three real runs — dark wallpaper with a translucent UI, a light wallpaper, and the Settings → Background Wallpaper page with its 122-image archive. The order the storefront uses is declared in [`screenshots.json`](screenshots.json).
 
 ### Install
 
